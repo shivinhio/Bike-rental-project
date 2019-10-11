@@ -1,0 +1,209 @@
+#imports 
+import pandas as pd
+import numpy as np 
+from pandas import Series,DataFrame
+import matplotlib.pyplot as plt 
+import seaborn as sns from matplotlib import pyplot
+
+#reading file df=pd.read_csv("C:\Users\dear\Desktop\day.csv")
+
+#getting familiar to data df.head()
+
+df.shape df.dtypes
+
+df=df.drop(['dteday','instant','casual','registered'],axis=1) 
+df.shape df.isnull().sum().sort_values()
+
+df.head(3)
+
+#univariate analysis 
+#continious variable
+#distribution plots
+sns.distplot(df['temp'])
+sns.distplot(df['atemp']) 
+sns.distplot(df['hum'])
+sns.distplot(df['windspeed'])
+
+#univariate analysis 
+#classified variables 
+#histograms 
+sns.barplot(x='season',y='cnt',data=df) 
+sns.barplot(x='yr',y='cnt',data=df)
+sns.barplot(x='mnth',y='cnt',data=df)
+sns.barplot(x='holiday',y='cnt',data=df) 
+sns.barplot(x='weekday',y='cnt',data=df)
+sns.barplot(x='workingday',y='cnt',data=df) 
+sns.barplot(x='weathersit',y='cnt',data=df)
+
+#scatter plots
+df.plot.scatter(x='temp',y='cnt')
+df.plot.scatter(x='atemp',y='cnt') 
+df.plot.scatter(x='hum',y='cnt') 
+df.plot.scatter(x='windspeed',y='cnt')
+
+#box plots
+sns.boxplot(x=df['temp']) 
+sns.boxplot(x=df['atemp'])
+sns.boxplot(x=df['hum'])
+sns.boxplot(x=df['windspeed'])
+
+#removing quartiles
+cnames=['hum'] 
+for i in cnames:
+Q3,Q1=np.percentile(df.loc[:,i],[75,25])
+IQR=Q3-Q1 min=Q1-(IQR1.5) 
+max=Q3+(IQR1.5) 
+min
+max
+df_out=df 
+df_out=df_out.drop(df_out[df_out.loc[:,i]<min].index)
+df_out=df_out.drop(df_out[df_out.loc[:,i]>max].index)
+sns.boxplot(x=df_out['hum']) cnames=['windspeed']
+for i in cnames: Q3,Q1=np.percentile(df.loc[:,i],[75,25])
+IQR=Q3-Q1 min=Q1-(IQR1.5) max=Q3+(IQR1.5)
+df_out=df_out.drop(df_out[df_out.loc[:,i]<min].index) 
+df_out=df_out.drop(df_out[df_out.loc[:,i]>max].index)
+sns.boxplot(x=df_out['windspeed'])
+
+#finding correlation between variables 
+df_out.corr(method='pearson').style.format("{:.2}").background_gradient(cmap=plt.get_cmap('coolwarm'),axis=1) corr=df_out.corr() sns.heatmap(corr,mask=np.zeros_like(corr,dtype=np.bool),cmap=sns.diverging_palette(220,10,as_cmap=True),square=True)
+
+#feature selection
+from sklearn.feature_selection 
+import SelectKBest 
+from sklearn.feature_selection import chi2
+X=df_out.drop('cnt',axis=1) 
+Y=df_out['cnt'] 
+bestfeature=SelectKBest(score_func=chi2,k=10)
+fit=bestfeature.fit(X,Y) 
+dfscores=pd.DataFrame(fit.scores_) 
+dfcolumns=pd.DataFrame(X.columns)
+featureScores=pd.concat([dfcolumns,dfscores],axis=1)
+featureScores.columns=['variables','Importance Score']
+featureScores.nlargest(12,'Importance Score')
+df_new=df_out.drop(['atemp'],axis=1)
+
+#creating dummies cat_feats=['season','yr','mnth','holiday','weekday','workingday','weathersit'] 
+df_final=pd.get_dummies(df_new,columns=cat_feats) 
+df_final.head()
+
+#creating training and testing data
+from sklearn.model_selection import train_test_split
+X=df_final.drop(['cnt'],axis=1)
+Y=df_final['cnt'] 
+X_train,X_test,Y_train,Y_test=train_test_split(X,Y,test_size=0.30,random_state=101)
+
+#decision tree regressor 
+from sklearn.tree import DecisionTreeRegressor
+dtree=DecisionTreeRegressor() 
+dtree.fit(X_train,Y_train) 
+pred_DT=dtree.predict(X_test)
+
+#random forest regressor 
+from sklearn.ensemble import RandomForestRegressor
+rfr=RandomForestRegressor(n_estimators=600,random_state=101)
+rfr.fit(X_train,Y_train) pred_rfr=rfr.predict(X_test)
+
+#linear regression
+from sklearn.linear_model import LinearRegression
+lr=LinearRegression()
+lr.fit(X_train,Y_train) 
+pred_lr=lr.predict(X_test)
+
+'Coefficients:\n',lr.coef_ plt.scatter(Y_test,pred_lr) plt.xlabel('Y Test') plt.ylabel('Predicted Y')
+
+#predictions with only importaint data rfr.feature_importances_
+
+#identifying importaint data 
+feat_importances=pd.Series(rfr.feature_importances_,index=X.columns)
+feat_importances.nlargest(10).plot(kind='bar') 
+plt.ylabel('Importance') 
+plt.xlabel('Variable') 
+plt.title('Variable Importances')
+df_imp=df_final[['temp','yr_0','yr_1','hum','season_4','windspeed','season_1','cnt']] Ximp=df_imp.drop('cnt',axis=1) Yimp=df_imp['cnt']
+
+#genrating training and testing data from importaint variables 
+Ximp_train,Ximp_test,Yimp_train,Yimp_test=train_test_split(Ximp,Yimp,test_size=0.30,random_state=101)
+
+#decision tree regressor
+dtree.fit(Ximp_train,Yimp_train)
+pred_dtreeimp=dtree.predict(Ximp_test)
+
+#random forest regressor 
+rfr.fit(Ximp_train,Yimp_train)
+pred_rfrimp=rfr.predict(Ximp_test)
+
+#linear regression
+lr.fit(Ximp_train,Yimp_train) 
+pred_lrimp=lr.predict(Ximp_test) 
+lr.coef_ plt.scatter(Yimp_test,pred_lrimp)
+
+#model accuracy calculation
+#MAPE score
+def MAPE(Y_test,pred_DT):
+   mape=np.mean(np.abs((Y_test-pred_DT)/Y_test)*100) return mape
+
+#MAPE score for original data
+#Descion tree MAPE score
+MAPE(Y_test,pred_DT)
+
+#Random forest MAPE score
+MAPE(Y_test,pred_rfr)
+
+#LInear regression MAPE score
+MAPE(Y_test,pred_lr)
+
+#MAPE score with only importaint data 
+#Descion tree MAPE score
+MAPE(Yimp_test,pred_dtreeimp)
+
+#Random Forest MAPE score
+MAPE(Yimp_test,pred_rfrimp)
+
+#Linear Regression MAPE score
+MAPE(Yimp_test,pred_lrimp)
+
+#r2 score 
+from sklearn.metrics import r2_score
+
+#r2 score for original data
+#Desicion tree
+r2_score(Y_test,pred_DT)
+
+#Random Forest
+r2_score(Y_test,pred_rfr)
+
+#linear Regression
+r2_score(Y_test,pred_lr)
+
+#r2 score for importaint data
+#Descion tree 
+r2_score(Yimp_test,pred_dtreeimp)
+
+#Random Forest 
+r2_score(Yimp_test,pred_rfrimp)
+
+#Linear Regression
+r2_score(Yimp_test,pred_lrimp)
+
+#Residual Plots
+sns.distplot((Yimp_test-pred_rfrimp),bins=50) plt.title('Residual plot')
+
+sns.residplot((Yimp_test-pred_rfrimp),pred_rfrimp)
+
+#predicted output saving as excel file
+predicted_output=pd.DataFrame(pred_rfrimp.round(0))
+
+predicted_output.rename(columns={0:'Predicted_cnt'},inplace=True) 
+predicted_output.head() 
+predicted_output.reset_index(0,inplace=True)
+Yimp_test_df=pd.DataFrame(Yimp_test)
+Yimp_test_df.head() 
+input_df_bike_cnt=Ximp_test.join(Yimp_test_df,how='inner') 
+input_df_bike_cnt.head()
+input_df_bike_cnt.reset_index(0,inplace=True)
+input_df_bike_cnt.head() 
+sample_output=input_df_bike_cnt.join(predicted_output,how='inner',lsuffix='_left',rsuffix='_right')
+sample_output.drop(['index_left','index_right'],axis=1,inplace=True)
+sample_output.head() 
+sample_output.to_excel('sample output final.xlsx',index=False)
